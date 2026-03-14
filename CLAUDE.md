@@ -13,4 +13,4 @@ Rules:
 - Stage specific files by name — avoid `git add -A` or `git add .`
 - Never let significant work accumulate without a commit
 
-Remote: https://github.com/maxpapazov62-oss/ClaudeCodeTest
+Remote: https://github.com/maxpapazov62-oss/ai-ugc-ad-bot
