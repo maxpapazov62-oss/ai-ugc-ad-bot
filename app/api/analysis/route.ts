@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
         hook: a.hook,
         bodyText: a.bodyText,
         ctaText: a.ctaText,
-        creativeType: a.creativeType,
+        creativeType: a.creativeType ?? "unknown",
       }))
     );
 
