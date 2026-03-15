@@ -16,33 +16,40 @@ export async function generateSoraPrompts(
 ): Promise<GeneratedPrompt[]> {
   const client = getClaudeClient();
 
-  const userMessage = `Based on this swipe file, generate Sora 2 video prompts.
+  const userMessage = `You are a world-class UGC video director writing Sora 2 prompts for paid social ads.
+
+Your prompts must be LONG, SPECIFIC, and CINEMATIC. Every prompt must include all 8 sections from the guide: scene header, API parameters, style block, subject description, cinematography, motion sequence, dialogue, and background sound. A weak, vague prompt is useless — describe exactly what you see in your mind as if painting every pixel.
 
 Rules:
-- For each hook/angle, generate one 15s prompt AND one 30s split (two 15s shots)
-- 30s Shot 1 sets the scene/problem; Shot 2 delivers the payoff/CTA
-- Reference "the product shown in the reference image" (user uploads product image as start frame in Sora)
+- For each hook/angle, generate one 15s scene AND one 30s concept (two 15s scenes: Scene 1 = hook/problem, Scene 2 = payoff/CTA)
+- Each scene must be 200–400 words minimum — long, rich, director-level detail
+- Describe the person physically: age range, hair, skin tone, eye color, complexion, outfit with specific colors and fabrics, physical/emotional state
+- Describe the product with specificity: color, label, logo, packaging details, how it is held or used
+- Describe the setting with specificity: exact location, time of day, what is visible in background, bokeh, shadows, light direction
+- Describe motion as a bullet-point sequence of micro-actions — not just "she holds the product" but exactly what she does with her hand, where she looks, how she moves
+- Write actual scripted dialogue lines with tone notes in parentheses
+- Describe ambient sound — no music unless specified
+- Reference "the product shown in the reference image" when describing the product
 - Label format: "[Brand] – [Angle] – 15s" or "[Brand] – [Angle] – 30s Shot 1" / "[Brand] – [Angle] – 30s Shot 2"
-- Focus on UGC-style, authentic feel
-- Generate at least 2-3 hooks/angles per brand
-
-Return a JSON array ONLY (no markdown, no explanation):
-[{ "label": "...", "duration": 15, "shotNumber": null, "angle": "...", "promptText": "...", "brandName": "..." }]
-
-For 30s prompts, shotNumber is 1 or 2. For 15s, shotNumber is null.
-Duration must be either 15 or 30.
+- Generate 2–3 distinct hooks/angles per brand
+- The promptText field must contain the full multi-section prompt as plain text (no JSON escaping issues)
 
 Brands to cover: ${brandNames.join(", ")}
 
-Swipe File:
+Swipe File (use the hooks, angles, and ad styles here as your creative brief):
 ${swipeFileContent}
 
-Sora 2 Guide:
-${SORA_PROMPTING_GUIDE}`;
+Sora 2 Framework:
+${SORA_PROMPTING_GUIDE}
+
+Return a JSON array ONLY — no markdown, no explanation, no code blocks:
+[{ "label": "...", "duration": 15, "shotNumber": null, "angle": "...", "promptText": "...", "brandName": "..." }]
+
+For 30s prompts: shotNumber is 1 or 2, duration is 30. For 15s: shotNumber is null, duration is 15.`;
 
   const message = await client.messages.create({
     model: "claude-opus-4-6",
-    max_tokens: 8192,
+    max_tokens: 16000,
     messages: [
       {
         role: "user",
