@@ -48,6 +48,7 @@ export async function scrapeMetaAds(
   useSearchTerm: boolean = false
 ): Promise<ScrapedAd[]> {
   const results: ScrapedAd[] = [];
+  const seenIds = new Set<string>();
   let after: string | null = null;
   // Fetch extra to account for filtering — winning ads may be a subset
   const fetchLimit = Math.min(limit * 3, 200);
@@ -83,6 +84,10 @@ export async function scrapeMetaAds(
 
     for (const ad of ads) {
       const daysRunning = computeDaysRunning(ad.ad_delivery_start_time || null);
+
+      // Skip duplicates within this scrape run
+      if (seenIds.has(ad.id)) continue;
+      seenIds.add(ad.id);
 
       // Only keep winning ads (30+ days running)
       if (!daysRunning || daysRunning < WINNING_AD_MIN_DAYS) continue;

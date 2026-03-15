@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
         const metaAds = await scrapeMetaAds(searchParam, accessToken, apiVersion, 50, useSearchTerm);
 
         for (const ad of metaAds) {
-          await db.insert(ads).values({
+          const inserted = await db.insert(ads).values({
             brandId: brand.id,
             metaAdId: ad.metaAdId,
             hook: ad.hook,
@@ -46,10 +46,11 @@ export async function POST(req: NextRequest) {
             rawPayload: ad.rawPayload,
             adDeliveryStartTime: ad.adDeliveryStartTime,
             daysRunning: ad.daysRunning,
-          }).onConflictDoNothing();
-        }
+          }).onConflictDoNothing().returning({ id: ads.id });
 
-        results.scraped += metaAds.length;
+          if (inserted.length > 0) results.scraped++;
+          else results.skipped++;
+        }
       } catch (err) {
         results.errors.push(`${brand.name}: ${err instanceof Error ? err.message : String(err)}`);
       }
