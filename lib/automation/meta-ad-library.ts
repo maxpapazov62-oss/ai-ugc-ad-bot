@@ -49,6 +49,7 @@ export async function scrapeMetaAds(
 ): Promise<ScrapedAd[]> {
   const results: ScrapedAd[] = [];
   const seenIds = new Set<string>();
+  const seenContent = new Set<string>();
   let after: string | null = null;
   // Fetch extra to account for filtering — winning ads may be a subset
   const fetchLimit = Math.min(limit * 3, 200);
@@ -85,7 +86,7 @@ export async function scrapeMetaAds(
     for (const ad of ads) {
       const daysRunning = computeDaysRunning(ad.ad_delivery_start_time || null);
 
-      // Skip duplicates within this scrape run
+      // Skip duplicate ad IDs within this scrape run
       if (seenIds.has(ad.id)) continue;
       seenIds.add(ad.id);
 
@@ -97,6 +98,12 @@ export async function scrapeMetaAds(
       const ctaText = ad.call_to_action_type
         ? ad.call_to_action_type.replace(/_/g, " ")
         : null;
+
+      // Skip ads with identical content (same creative running under multiple ad IDs)
+      const contentKey = `${hook}||${bodyText}||${ctaText}`;
+      if (seenContent.has(contentKey)) continue;
+      seenContent.add(contentKey);
+
       const creativeType = ad.publisher_platforms?.includes("instagram")
         ? "video"
         : "image";
