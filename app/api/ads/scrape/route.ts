@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
             creativeType: ad.creativeType,
             thumbnailUrl: ad.thumbnailUrl,
             rawPayload: ad.rawPayload,
+            adDeliveryStartTime: ad.adDeliveryStartTime,
+            daysRunning: ad.daysRunning,
           }).onConflictDoNothing();
         }
 

@@ -1,43 +1,70 @@
 import { getClaudeClient } from "./claude";
 import { SORA_PROMPTING_GUIDE } from "../constants/sora-prompting-guide";
 import { CLAUDE_SONNET } from "../constants/models";
+import type { AdDeconstruction } from "./analyze-ads";
+
+export type AdPromptInput = {
+  adDbId: number;
+  brandName: string;
+  deconstruction: AdDeconstruction;
+};
 
 export async function* generateSoraPrompts(
-  swipeFileContent: string,
-  brandNames: string[]
+  ads: AdPromptInput[]
 ): AsyncGenerator<string> {
   const client = getClaudeClient();
 
+  const adList = ads.map((a, i) => {
+    const d = a.deconstruction;
+    return `Ad ${i + 1} (adDbId: ${a.adDbId}, brand: ${a.brandName}):
+  Format: ${d.format}
+  Setting: ${d.setting}
+  Hook type: ${d.hookType}
+  Hook text: "${d.hookText}"
+  CTA: "${d.ctaText}"
+  Visual style: ${d.visualStyle}
+  Product usage: ${d.productUsage}
+  Tone: ${d.tone}
+  Target audience: ${d.targetAudience}
+  Winning ingredients: ${d.winningIngredients.join(", ")}`;
+  }).join("\n\n");
+
   const userMessage = `You are a world-class UGC video director writing Sora 2 prompts for paid social ads.
 
-Your prompts must be LONG, SPECIFIC, and CINEMATIC. Every prompt must include all 8 sections from the guide: scene header, API parameters, style block, subject description, cinematography, motion sequence, dialogue, and background sound. A weak, vague prompt is useless — describe exactly what you see in your mind as if painting every pixel.
+Each prompt you write must be a DIRECT REPLICA of a specific winning Meta ad. You are not guessing or going on vibes — you are translating a proven, data-backed ad into a Sora video prompt. Every creative decision must mirror the source ad exactly: same format, same setting, same hook, same CTA, same tone.
 
 Rules:
-- For each hook/angle, generate one 15s scene AND one 30s concept (two 15s scenes: Scene 1 = hook/problem, Scene 2 = payoff/CTA)
-- Each scene must be 200–400 words minimum — long, rich, director-level detail
-- Describe the person physically: age range, hair, skin tone, eye color, complexion, outfit with specific colors and fabrics, physical/emotional state
-- Describe the product with specificity: color, label, logo, packaging details, how it is held or used
-- Describe the setting with specificity: exact location, time of day, what is visible in background, bokeh, shadows, light direction
-- Describe motion as a bullet-point sequence of micro-actions — not just "she holds the product" but exactly what she does with her hand, where she looks, how she moves
-- Write actual scripted dialogue lines with tone notes in parentheses
-- Describe ambient sound — no music unless specified
-- Reference "the product shown in the reference image" when describing the product
-- Label format: "[Brand] – [Angle] – 15s" or "[Brand] – [Angle] – 30s Shot 1" / "[Brand] – [Angle] – 30s Shot 2"
-- Generate 2–3 distinct hooks/angles per brand
-- The promptText field must contain the full multi-section prompt as plain text
+- For each ad below, generate a 30-second concept: Shot 1 (hook/problem, ~15s) and Shot 2 (payoff/CTA, ~15s)
+- The format, setting, hook, and CTA MUST match the source ad exactly
+- Shot 1 must open with the exact hook from the source ad, in the exact same format and setting
+- Shot 2 must close with the exact CTA from the source ad, with the product payoff
+- Each shot must be 200–400 words — long, rich, director-level detail
+- Describe the person physically: age range, hair, skin tone, eye color, complexion, outfit
+- Describe the product with specificity: color, label, packaging, how it's held/used
+- Describe the setting with specificity: exact location, lighting, what's visible in background
+- Describe motion as bullet-point micro-actions
+- Write actual scripted dialogue matching the source ad's tone
+- Describe ambient sound — no music unless the source ad implies it
+- Label format: "[Brand] – [Hook/Angle] – 30s Shot 1" and "[Brand] – [Hook/Angle] – 30s Shot 2"
 
-Brands to cover: ${brandNames.join(", ")}
-
-Swipe File (use the hooks, angles, and ad styles here as your creative brief):
-${swipeFileContent}
-
-Sora 2 Framework:
+Sora 2 Framework (follow all 8 sections per shot):
 ${SORA_PROMPTING_GUIDE}
 
-Return a JSON array ONLY — no markdown, no explanation, no code blocks:
-[{ "label": "...", "duration": 15, "shotNumber": null, "angle": "...", "promptText": "...", "brandName": "..." }]
+Winning ads to replicate:
+${adList}
 
-For 30s prompts: shotNumber is 1 or 2, duration is 30. For 15s: shotNumber is null, duration is 15.`;
+Return a JSON array ONLY — no markdown, no explanation, no code blocks:
+[{
+  "adDbId": <number>,
+  "label": "...",
+  "duration": 30,
+  "shotNumber": 1,
+  "angle": "...",
+  "promptText": "...",
+  "brandName": "..."
+}, ...]
+
+Generate both Shot 1 and Shot 2 for each ad (each ad produces 2 entries in the array).`;
 
   const stream = client.messages.stream({
     model: CLAUDE_SONNET,

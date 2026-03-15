@@ -24,6 +24,10 @@ export const ads = sqliteTable("ads", {
   creativeType: text("creative_type"),
   thumbnailUrl: text("thumbnail_url"),
   rawPayload: text("raw_payload"),
+  adDeliveryStartTime: text("ad_delivery_start_time"),
+  daysRunning: integer("days_running"),
+  adFormat: text("ad_format"),
+  deconstruction: text("deconstruction"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
 }, (table) => [
   index("ads_brand_id_idx").on(table.brandId),
@@ -40,6 +44,7 @@ export const soraPrompts = sqliteTable("sora_prompts", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   swipeFileId: integer("swipe_file_id").references(() => swipeFiles.id),
   brandId: integer("brand_id").references(() => brands.id),
+  sourceAdId: integer("source_ad_id").references(() => ads.id),
   label: text("label").notNull(),
   duration: integer("duration").notNull(),
   shotNumber: integer("shot_number"),

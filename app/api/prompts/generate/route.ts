@@ -1,8 +1,9 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { swipeFiles, soraPrompts, brands } from "@/db/schema";
-import { eq, inArray, sql } from "drizzle-orm";
+import { swipeFiles, soraPrompts, brands, ads } from "@/db/schema";
+import { eq, inArray } from "drizzle-orm";
 import { generateSoraPrompts } from "@/lib/ai/generate-prompts";
+import type { AdDeconstruction } from "@/lib/ai/analyze-ads";
 import { jsonrepair } from "jsonrepair";
 
 export async function POST(req: NextRequest) {
@@ -18,10 +19,31 @@ export async function POST(req: NextRequest) {
   }
 
   const brandIds = JSON.parse(swipeFile.brandIds) as number[];
-  const brandRecords = await db.select().from(brands).where(
-    brandIds.length > 0 ? inArray(brands.id, brandIds) : sql`1=1`
+
+  // Fetch all deconstructed winning ads for these brands
+  const deconstructedAds = await db.select({
+    id: ads.id,
+    brandId: ads.brandId,
+    brandName: brands.name,
+    deconstruction: ads.deconstruction,
+  })
+  .from(ads)
+  .leftJoin(brands, eq(ads.brandId, brands.id))
+  .where(
+    inArray(ads.brandId, brandIds.length > 0 ? brandIds : [-1])
   );
-  const brandNames = brandRecords.map((b) => b.name);
+
+  const adsWithDeconstruction = deconstructedAds.filter((a) => a.deconstruction);
+
+  if (adsWithDeconstruction.length === 0) {
+    return new Response(JSON.stringify({ error: "No deconstructed ads found — run Analyze first" }), { status: 400 });
+  }
+
+  const adInputs = adsWithDeconstruction.map((a) => ({
+    adDbId: a.id,
+    brandName: a.brandName || "Unknown",
+    deconstruction: JSON.parse(a.deconstruction!) as AdDeconstruction,
+  }));
 
   const encoder = new TextEncoder();
 
@@ -32,29 +54,43 @@ export async function POST(req: NextRequest) {
       };
 
       try {
-        send("status", "Generating prompts...");
+        send("status", `Generating prompts for ${adInputs.length} winning ads...`);
 
         let fullText = "";
-        for await (const chunk of generateSoraPrompts(swipeFile.content, brandNames)) {
+        for await (const chunk of generateSoraPrompts(adInputs)) {
           fullText += chunk;
           send("chunk", chunk);
         }
 
         send("status", "Saving to database...");
 
-        // Strip markdown code fences if present
         let jsonText = fullText.trim();
         jsonText = jsonText.replace(/^```json\n?/, "").replace(/\n?```$/, "");
         jsonText = jsonText.replace(/^```\n?/, "").replace(/\n?```$/, "");
 
-        const parsed = JSON.parse(jsonrepair(jsonText));
+        const parsed = JSON.parse(jsonrepair(jsonText)) as Array<{
+          adDbId: number;
+          label: string;
+          duration: number;
+          shotNumber: number | null;
+          angle: string;
+          promptText: string;
+          brandName: string;
+        }>;
+
+        // Map brandName to brandId
+        const brandRecords = await db.select().from(brands).where(
+          inArray(brands.id, brandIds.length > 0 ? brandIds : [-1])
+        );
+        const brandNameToId = new Map(brandRecords.map((b) => [b.name, b.id]));
 
         const inserted = await Promise.all(
-          parsed.map(async (p: { label: string; duration: number; shotNumber: number | null; angle: string; promptText: string; brandName: string }) => {
-            const brand = brandRecords.find((b) => b.name === p.brandName);
+          parsed.map(async (p) => {
+            const brandId = brandNameToId.get(p.brandName) ?? null;
             const [row] = await db.insert(soraPrompts).values({
               swipeFileId,
-              brandId: brand?.id || null,
+              brandId,
+              sourceAdId: p.adDbId || null,
               label: p.label,
               duration: p.duration,
               shotNumber: p.shotNumber,
@@ -68,7 +104,7 @@ export async function POST(req: NextRequest) {
 
         send("done", JSON.stringify({ count: inserted.length }));
       } catch (err) {
-        send("error", String(err));
+        send("error", err instanceof Error ? err.message : String(err));
       } finally {
         controller.close();
       }

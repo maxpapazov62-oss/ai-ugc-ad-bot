@@ -13,11 +13,14 @@ export async function POST(req: NextRequest) {
     }
 
     const brandAds = await db.select({
+      id: ads.id,
+      metaAdId: ads.metaAdId,
       brandName: brands.name,
       hook: ads.hook,
       bodyText: ads.bodyText,
       ctaText: ads.ctaText,
       creativeType: ads.creativeType,
+      daysRunning: ads.daysRunning,
     })
     .from(ads)
     .leftJoin(brands, eq(ads.brandId, brands.id))
@@ -27,22 +30,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No ads found for selected brands" }, { status: 400 });
     }
 
-    const content = await analyzeAds(
+    const result = await analyzeAds(
       brandAds.map((a) => ({
+        dbId: a.id,
+        metaAdId: a.metaAdId ?? String(a.id),
         brandName: a.brandName || "Unknown",
         hook: a.hook,
         bodyText: a.bodyText,
         ctaText: a.ctaText,
         creativeType: a.creativeType ?? "unknown",
+        daysRunning: a.daysRunning,
       }))
     );
 
+    // Store deconstruction + adFormat on each ad row
+    await Promise.all(
+      result.deconstructions.map((d) => {
+        if (!d.dbId) return Promise.resolve();
+        return db.update(ads)
+          .set({
+            adFormat: d.format,
+            deconstruction: JSON.stringify(d),
+          })
+          .where(eq(ads.id, d.dbId));
+      })
+    );
+
     const [swipeFile] = await db.insert(swipeFiles).values({
-      content,
+      content: result.swipeFileContent,
       brandIds: JSON.stringify(brandIds),
     }).returning();
 
-    return NextResponse.json({ swipeFileId: swipeFile.id, content });
+    return NextResponse.json({ swipeFileId: swipeFile.id, content: result.swipeFileContent });
   } catch (error) {
     return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
   }

@@ -13,6 +13,8 @@ type Ad = {
   ctaText: string | null;
   creativeType: string;
   thumbnailUrl: string | null;
+  daysRunning: number | null;
+  adFormat: string | null;
 };
 type SwipeFile = { id: number; content: string; createdAt: string };
 
@@ -151,8 +153,14 @@ export default function AdsPage() {
             }).slice(0, 20).map((ad) => (
               <Card key={ad.id} className="text-sm">
                 <div className="flex items-center justify-between mb-2">
-                  <Badge variant="muted">{ad.brandName}</Badge>
-                  <Badge>{ad.creativeType}</Badge>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="muted">{ad.brandName}</Badge>
+                    {ad.adFormat && <Badge variant="default">{ad.adFormat}</Badge>}
+                    <Badge>{ad.creativeType}</Badge>
+                  </div>
+                  {ad.daysRunning && (
+                    <span className="text-xs font-mono text-green-400 shrink-0">{ad.daysRunning}d running</span>
+                  )}
                 </div>
                 {ad.hook && <div className="font-bold text-sm mb-1">{ad.hook}</div>}
                 {ad.bodyText && (

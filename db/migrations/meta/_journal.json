@@ -8,6 +8,20 @@
       "when": 1773509398351,
       "tag": "0000_dazzling_sentinels",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1773595023510,
+      "tag": "0001_red_shaman",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1773596292387,
+      "tag": "0002_good_magdalene",
+      "breakpoints": true
     }
   ]
 }

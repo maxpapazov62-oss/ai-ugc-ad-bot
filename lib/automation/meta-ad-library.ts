@@ -1,5 +1,7 @@
 const META_API_BASE = "https://graph.facebook.com";
 
+const WINNING_AD_MIN_DAYS = 30;
+
 export type MetaAd = {
   id: string;
   ad_snapshot_url: string;
@@ -8,9 +10,8 @@ export type MetaAd = {
   ad_creative_link_descriptions?: string[];
   ad_creative_link_titles?: string[];
   call_to_action_type?: string;
-  impressions?: { lower_bound: string; upper_bound: string };
-  spend?: { lower_bound: string; upper_bound: string };
   publisher_platforms?: string[];
+  ad_delivery_start_time?: string;
 };
 
 export type ScrapedAd = {
@@ -22,12 +23,21 @@ export type ScrapedAd = {
   creativeType: string;
   thumbnailUrl: string | null;
   rawPayload: string;
+  adDeliveryStartTime: string | null;
+  daysRunning: number | null;
 };
 
 function extractHook(bodyText: string | null): string | null {
   if (!bodyText) return null;
   const sentences = bodyText.split(/[.!?]+/).filter((s) => s.trim().length > 0);
   return sentences[0]?.trim() || null;
+}
+
+function computeDaysRunning(startTime: string | null): number | null {
+  if (!startTime) return null;
+  const startDate = new Date(startTime);
+  if (isNaN(startDate.getTime())) return null;
+  return Math.floor((Date.now() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 export async function scrapeMetaAds(
@@ -39,8 +49,10 @@ export async function scrapeMetaAds(
 ): Promise<ScrapedAd[]> {
   const results: ScrapedAd[] = [];
   let after: string | null = null;
+  // Fetch extra to account for filtering — winning ads may be a subset
+  const fetchLimit = Math.min(limit * 3, 200);
 
-  while (true) {
+  while (results.length < limit) {
     const params = new URLSearchParams({
       ...(useSearchTerm
         ? { search_terms: facebookPageIdOrSearchTerm }
@@ -48,9 +60,9 @@ export async function scrapeMetaAds(
       ad_reached_countries: '["US"]',
       ad_active_status: "ACTIVE",
       ad_type: "ALL",
-      limit: String(Math.min(limit - results.length, 50)),
+      limit: String(Math.min(fetchLimit - results.length, 50)),
       fields:
-        "id,ad_snapshot_url,ad_creative_bodies,ad_creative_link_captions,ad_creative_link_descriptions,ad_creative_link_titles,call_to_action_type,publisher_platforms",
+        "id,ad_snapshot_url,ad_creative_bodies,ad_creative_link_captions,ad_creative_link_descriptions,ad_creative_link_titles,call_to_action_type,publisher_platforms,ad_delivery_start_time",
       access_token: accessToken,
     });
 
@@ -67,10 +79,14 @@ export async function scrapeMetaAds(
     }
 
     const json = await response.json();
-    console.log("Meta API response:", JSON.stringify(json).slice(0, 500));
     const ads: MetaAd[] = json.data || [];
 
     for (const ad of ads) {
+      const daysRunning = computeDaysRunning(ad.ad_delivery_start_time || null);
+
+      // Only keep winning ads (30+ days running)
+      if (!daysRunning || daysRunning < WINNING_AD_MIN_DAYS) continue;
+
       const bodyText = ad.ad_creative_bodies?.[0] || null;
       const hook = extractHook(bodyText);
       const ctaText = ad.call_to_action_type
@@ -89,13 +105,15 @@ export async function scrapeMetaAds(
         creativeType,
         thumbnailUrl: ad.ad_snapshot_url || null,
         rawPayload: JSON.stringify(ad),
+        adDeliveryStartTime: ad.ad_delivery_start_time || null,
+        daysRunning,
       });
+
+      if (results.length >= limit) break;
     }
 
     const nextCursor = json.paging?.cursors?.after;
-    if (!nextCursor || results.length >= limit || ads.length === 0) {
-      break;
-    }
+    if (!nextCursor || ads.length === 0) break;
     after = nextCursor;
   }
 

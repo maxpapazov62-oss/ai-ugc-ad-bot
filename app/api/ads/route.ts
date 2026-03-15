@@ -19,6 +19,8 @@ export async function GET(req: NextRequest) {
       angle: ads.angle,
       creativeType: ads.creativeType,
       thumbnailUrl: ads.thumbnailUrl,
+      daysRunning: ads.daysRunning,
+      adFormat: ads.adFormat,
       createdAt: ads.createdAt,
     }).from(ads).leftJoin(brands, eq(ads.brandId, brands.id));
 
