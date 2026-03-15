@@ -4,6 +4,18 @@ import { ads, brands } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
 import { parseId } from "@/lib/utils/params";
 
+export async function DELETE(req: NextRequest) {
+  try {
+    const { id } = await req.json() as { id: number };
+    const adId = parseId(String(id));
+    if (!adId) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
+    await db.delete(ads).where(eq(ads.id, adId));
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}
+
 export async function GET(req: NextRequest) {
   try {
     const brandId = req.nextUrl.searchParams.get("brandId");

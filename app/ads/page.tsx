@@ -29,6 +29,7 @@ export default function AdsPage() {
   const [scrapeMsg, setScrapeMsg] = useState("");
   const [search, setSearch] = useState("");
   const [brandSearch, setBrandSearch] = useState("");
+  const [deletingAd, setDeletingAd] = useState<number | null>(null);
 
   useEffect(() => {
     fetch("/api/brands").then((r) => r.json()).then(setBrands);
@@ -58,6 +59,17 @@ export default function AdsPage() {
     setScrapeMsg(`Scraped ${data.scraped || 0} ads. Skipped: ${data.skipped || 0}.`);
     setScraping(false);
     fetch("/api/ads").then((r) => r.json()).then(setAds);
+  };
+
+  const deleteAd = async (id: number) => {
+    setDeletingAd(id);
+    await fetch("/api/ads", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setAds((prev) => prev.filter((a) => a.id !== id));
+    setDeletingAd(null);
   };
 
   const analyzeAds = async () => {
@@ -158,9 +170,18 @@ export default function AdsPage() {
                     {ad.adFormat && <Badge variant="default">{ad.adFormat}</Badge>}
                     <Badge>{ad.creativeType}</Badge>
                   </div>
-                  {ad.daysRunning && (
-                    <span className="text-xs font-mono text-green-400 shrink-0">{ad.daysRunning}d running</span>
-                  )}
+                  <div className="flex items-center gap-3 shrink-0">
+                    {ad.daysRunning && (
+                      <span className="text-xs font-mono text-green-400">{ad.daysRunning}d running</span>
+                    )}
+                    <button
+                      onClick={() => deleteAd(ad.id)}
+                      disabled={deletingAd === ad.id}
+                      className="text-white/20 hover:text-red-400 text-xs font-mono transition-colors disabled:opacity-40"
+                    >
+                      {deletingAd === ad.id ? "..." : "delete"}
+                    </button>
+                  </div>
                 </div>
                 {ad.hook && <div className="font-bold text-sm mb-1">{ad.hook}</div>}
                 {ad.bodyText && (
