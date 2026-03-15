@@ -9,12 +9,15 @@
     "lint": "next lint",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx scripts/seed-brands.ts",
+    "db:seed-ads": "tsx scripts/seed-ads.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.36.3",
     "better-sqlite3": "^11.9.1",
     "drizzle-orm": "^0.40.0",
+    "jsonrepair": "^3.13.3",
     "next": "14.2.29",
     "openai": "^4.91.1",
     "react": "^18",
@@ -31,6 +34,7 @@
     "eslint-config-next": "14.2.29",
     "playwright": "^1.51.1",
     "tailwindcss": "^3.4.1",
+    "tsx": "^4.21.0",
     "typescript": "^5"
   }
 }

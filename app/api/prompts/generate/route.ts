@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { swipeFiles, soraPrompts, brands } from "@/db/schema";
 import { eq, inArray, sql } from "drizzle-orm";
 import { generateSoraPrompts } from "@/lib/ai/generate-prompts";
+import { jsonrepair } from "jsonrepair";
 
 export async function POST(req: NextRequest) {
   const { swipeFileId } = await req.json() as { swipeFileId: number };
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
         jsonText = jsonText.replace(/^```json\n?/, "").replace(/\n?```$/, "");
         jsonText = jsonText.replace(/^```\n?/, "").replace(/\n?```$/, "");
 
-        const parsed = JSON.parse(jsonText);
+        const parsed = JSON.parse(jsonrepair(jsonText));
 
         const inserted = await Promise.all(
           parsed.map(async (p: { label: string; duration: number; shotNumber: number | null; angle: string; promptText: string; brandName: string }) => {
