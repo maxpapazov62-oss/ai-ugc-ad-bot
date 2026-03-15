@@ -20,12 +20,29 @@ export async function lookupFacebookPageId(
   accessToken: string,
   apiVersion: string = "v22.0"
 ): Promise<string | null> {
+  // Strategy 1: resolve by slug (brand name as Facebook page username)
+  // e.g. "Lululemon" → graph.facebook.com/lululemon?fields=id,name
+  const slug = brandName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const slugUrl = `${META_API_BASE}/${slug}?fields=id,name&access_token=${accessToken}`;
+  try {
+    const slugRes = await fetch(slugUrl);
+    if (slugRes.ok) {
+      const data = await slugRes.json();
+      if (data.id && !data.error) {
+        return data.id as string;
+      }
+    }
+  } catch {
+    // fall through to strategy 2
+  }
+
+  // Strategy 2: search the Ad Library and tally page_ids by name similarity
   const params = new URLSearchParams({
     search_terms: brandName,
     ad_reached_countries: '["US"]',
     ad_active_status: "ACTIVE",
     ad_type: "ALL",
-    limit: "25",
+    limit: "50",
     fields: "page_id,page_name",
     access_token: accessToken,
   });
@@ -36,26 +53,25 @@ export async function lookupFacebookPageId(
 
   const json = await response.json();
   const results: Array<{ page_id?: string; page_name?: string }> = json.data || [];
-
   if (results.length === 0) return null;
 
-  // Count page_id occurrences, weighted by name similarity
-  const scores = new Map<string, { score: number; name: string }>();
+  // Tally how often each page_id appears, weighted by name similarity
+  const tally = new Map<string, { score: number; count: number }>();
   for (const r of results) {
     if (!r.page_id || !r.page_name) continue;
     const sim = nameSimilarity(brandName, r.page_name);
-    const existing = scores.get(r.page_id);
-    if (!existing || sim > existing.score) {
-      scores.set(r.page_id, { score: sim, name: r.page_name });
+    const existing = tally.get(r.page_id);
+    if (existing) {
+      existing.count++;
+      existing.score = Math.max(existing.score, sim);
+    } else {
+      tally.set(r.page_id, { score: sim, count: 1 });
     }
   }
 
-  if (scores.size === 0) return null;
-
-  // Pick highest scoring page_id that has at least some name similarity
-  const best = Array.from(scores.entries())
+  const best = Array.from(tally.entries())
     .filter(([, v]) => v.score > 0.3)
-    .sort((a, b) => b[1].score - a[1].score)[0];
+    .sort((a, b) => (b[1].score * b[1].count) - (a[1].score * a[1].count))[0];
 
   return best ? best[0] : null;
 }
