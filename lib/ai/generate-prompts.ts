@@ -1,19 +1,10 @@
 import { getClaudeClient } from "./claude";
 import { SORA_PROMPTING_GUIDE } from "../constants/sora-prompting-guide";
 
-export type GeneratedPrompt = {
-  label: string;
-  duration: 15 | 30;
-  shotNumber: 1 | 2 | null;
-  angle: string;
-  promptText: string;
-  brandName: string;
-};
-
-export async function generateSoraPrompts(
+export async function* generateSoraPrompts(
   swipeFileContent: string,
   brandNames: string[]
-): Promise<GeneratedPrompt[]> {
+): AsyncGenerator<string> {
   const client = getClaudeClient();
 
   const userMessage = `You are a world-class UGC video director writing Sora 2 prompts for paid social ads.
@@ -32,7 +23,7 @@ Rules:
 - Reference "the product shown in the reference image" when describing the product
 - Label format: "[Brand] – [Angle] – 15s" or "[Brand] – [Angle] – 30s Shot 1" / "[Brand] – [Angle] – 30s Shot 2"
 - Generate 2–3 distinct hooks/angles per brand
-- The promptText field must contain the full multi-section prompt as plain text (no JSON escaping issues)
+- The promptText field must contain the full multi-section prompt as plain text
 
 Brands to cover: ${brandNames.join(", ")}
 
@@ -47,25 +38,18 @@ Return a JSON array ONLY — no markdown, no explanation, no code blocks:
 
 For 30s prompts: shotNumber is 1 or 2, duration is 30. For 15s: shotNumber is null, duration is 15.`;
 
-  const message = await client.messages.create({
-    model: "claude-opus-4-6",
+  const stream = client.messages.stream({
+    model: "claude-sonnet-4-6",
     max_tokens: 16000,
-    messages: [
-      {
-        role: "user",
-        content: userMessage,
-      },
-    ],
+    messages: [{ role: "user", content: userMessage }],
   });
 
-  const content = message.content[0];
-  if (content.type !== "text") throw new Error("Unexpected response type");
-
-  let jsonText = content.text.trim();
-  // Strip markdown code blocks if present
-  jsonText = jsonText.replace(/^```json\n?/, "").replace(/\n?```$/, "");
-  jsonText = jsonText.replace(/^```\n?/, "").replace(/\n?```$/, "");
-
-  const parsed = JSON.parse(jsonText) as GeneratedPrompt[];
-  return parsed;
+  for await (const event of stream) {
+    if (
+      event.type === "content_block_delta" &&
+      event.delta.type === "text_delta"
+    ) {
+      yield event.delta.text;
+    }
+  }
 }

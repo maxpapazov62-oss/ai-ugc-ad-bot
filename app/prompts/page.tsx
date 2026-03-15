@@ -23,6 +23,7 @@ export default function PromptsPage() {
   const [selectedSwipeFile, setSelectedSwipeFile] = useState<number | null>(null);
   const [prompts, setPrompts] = useState<Prompt[]>([]);
   const [generating, setGenerating] = useState(false);
+  const [generateStatus, setGenerateStatus] = useState("");
   const [filterDuration, setFilterDuration] = useState<number | null>(null);
   const [filterBrand, setFilterBrand] = useState<string | null>(null);
 
@@ -37,12 +38,45 @@ export default function PromptsPage() {
   const generate = async () => {
     if (!selectedSwipeFile) return;
     setGenerating(true);
+    setGenerateStatus("Connecting...");
+
     const res = await fetch("/api/prompts/generate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ swipeFileId: selectedSwipeFile }),
     });
-    await res.json();
+
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+
+      for (const line of lines) {
+        if (line.startsWith("event: status")) continue;
+        if (line.startsWith("event: chunk")) continue;
+        if (line.startsWith("event: error")) {
+          setGenerateStatus("Error generating prompts");
+        }
+        if (line.startsWith("event: done")) {
+          setGenerateStatus("Done");
+        }
+        if (line.startsWith("data: ") && !line.startsWith("data: {")) {
+          setGenerateStatus(line.slice(6));
+        }
+        if (line.startsWith("data: ") && line.includes('"count"')) {
+          const data = JSON.parse(line.slice(6));
+          setGenerateStatus(`Generated ${data.count} prompts`);
+        }
+      }
+    }
+
     setGenerating(false);
     fetch("/api/prompts").then((r) => r.json()).then(setPrompts);
   };
@@ -103,6 +137,12 @@ export default function PromptsPage() {
         <Button onClick={generate} loading={generating} disabled={!selectedSwipeFile || generating}>
           Generate Sora Prompts
         </Button>
+        {generating && generateStatus && (
+          <span className="text-xs text-white/40 font-mono animate-pulse">{generateStatus}</span>
+        )}
+        {!generating && generateStatus && generateStatus !== "" && (
+          <span className="text-xs text-white/40 font-mono">{generateStatus}</span>
+        )}
         {selectedSwipeFile && (
           <Button
             variant="ghost"
