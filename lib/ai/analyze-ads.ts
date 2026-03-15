@@ -1,4 +1,5 @@
 import { getClaudeClient } from "./claude";
+import { CLAUDE_OPUS } from "../constants/models";
 
 export type AdForAnalysis = {
   brandName: string;
@@ -39,7 +40,7 @@ export async function analyzeAds(ads: AdForAnalysis[]): Promise<string> {
     .join("\n\n---\n\n");
 
   const message = await client.messages.create({
-    model: "claude-opus-4-6",
+    model: CLAUDE_OPUS,
     max_tokens: 4096,
     system: SYSTEM_PROMPT,
     messages: [

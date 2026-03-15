@@ -1,5 +1,6 @@
 import { getClaudeClient } from "./claude";
 import { SORA_PROMPTING_GUIDE } from "../constants/sora-prompting-guide";
+import { CLAUDE_SONNET } from "../constants/models";
 
 export async function* generateSoraPrompts(
   swipeFileContent: string,
@@ -39,7 +40,7 @@ Return a JSON array ONLY — no markdown, no explanation, no code blocks:
 For 30s prompts: shotNumber is 1 or 2, duration is 30. For 15s: shotNumber is null, duration is 15.`;
 
   const stream = client.messages.stream({
-    model: "claude-sonnet-4-6",
+    model: CLAUDE_SONNET,
     max_tokens: 16000,
     messages: [{ role: "user", content: userMessage }],
   });

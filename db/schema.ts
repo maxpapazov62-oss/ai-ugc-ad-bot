@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, real } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, real, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 
 export const brands = sqliteTable("brands", {
@@ -25,7 +25,9 @@ export const ads = sqliteTable("ads", {
   thumbnailUrl: text("thumbnail_url"),
   rawPayload: text("raw_payload"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
-});
+}, (table) => [
+  index("ads_brand_id_idx").on(table.brandId),
+]);
 
 export const swipeFiles = sqliteTable("swipe_files", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -46,7 +48,10 @@ export const soraPrompts = sqliteTable("sora_prompts", {
   status: text("status").notNull().default("pending"),
   soraSharedLink: text("sora_shared_link"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
-});
+}, (table) => [
+  index("sora_prompts_brand_id_idx").on(table.brandId),
+  index("sora_prompts_status_idx").on(table.status),
+]);
 
 export const videos = sqliteTable("videos", {
   id: integer("id").primaryKey({ autoIncrement: true }),
@@ -56,4 +61,6 @@ export const videos = sqliteTable("videos", {
   localFilePath: text("local_file_path"),
   errorMessage: text("error_message"),
   createdAt: text("created_at").default(sql`(datetime('now'))`),
-});
+}, (table) => [
+  index("videos_prompt_id_idx").on(table.promptId),
+]);

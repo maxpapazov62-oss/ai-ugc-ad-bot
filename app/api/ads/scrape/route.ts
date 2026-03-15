@@ -12,6 +12,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No brand IDs provided" }, { status: 400 });
     }
 
+    if (brandIds.length > 20) {
+      return NextResponse.json({ error: "Max 20 brands per request" }, { status: 400 });
+    }
+
     const accessToken = process.env.META_ACCESS_TOKEN;
     const apiVersion = process.env.META_API_VERSION || "v19.0";
 
@@ -24,14 +28,10 @@ export async function POST(req: NextRequest) {
     const results = { scraped: 0, skipped: 0, errors: [] as string[] };
 
     for (const brand of selectedBrands) {
-      if (!brand.facebookPageId) {
-        results.skipped++;
-        results.errors.push(`${brand.name}: no Facebook page ID`);
-        continue;
-      }
-
       try {
-        const metaAds = await scrapeMetaAds(brand.facebookPageId, accessToken, apiVersion);
+        const useSearchTerm = !brand.facebookPageId;
+        const searchParam = brand.facebookPageId || brand.name;
+        const metaAds = await scrapeMetaAds(searchParam, accessToken, apiVersion, 50, useSearchTerm);
 
         for (const ad of metaAds) {
           await db.insert(ads).values({
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
 
         results.scraped += metaAds.length;
       } catch (err) {
-        results.errors.push(`${brand.name}: ${String(err)}`);
+        results.errors.push(`${brand.name}: ${err instanceof Error ? err.message : String(err)}`);
       }
     }
 

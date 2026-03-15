@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { ads, brands } from "@/db/schema";
 import { eq, inArray } from "drizzle-orm";
+import { parseId } from "@/lib/utils/params";
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,7 +23,9 @@ export async function GET(req: NextRequest) {
     }).from(ads).leftJoin(brands, eq(ads.brandId, brands.id));
 
     if (brandId) {
-      const result = await query.where(eq(ads.brandId, parseInt(brandId)));
+      const id = parseId(brandId);
+      if (!id) return NextResponse.json({ error: "Invalid brandId" }, { status: 400 });
+      const result = await query.where(eq(ads.brandId, id));
       return NextResponse.json(result);
     }
 

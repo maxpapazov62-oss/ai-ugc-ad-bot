@@ -7,7 +7,7 @@ export async function removeWatermark(
   watermarkRemovalUrl: string
 ): Promise<string> {
   const downloadDir = path.join(os.homedir(), "Downloads");
-  const browser = await chromium.launch({ headless: false });
+  const browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     acceptDownloads: true,
   });

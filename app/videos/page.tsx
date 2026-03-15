@@ -37,14 +37,20 @@ export default function VideosPage() {
     fetch("/api/videos").then((r) => r.json()).then(setVideos);
   }, []);
 
-  // Poll processing videos
+  // Poll processing videos — only re-subscribe when the set of processing IDs changes
+  const processingIds = videos
+    .filter((v) => v.watermarkStatus === "processing")
+    .map((v) => v.id)
+    .sort()
+    .join(",");
+
   useEffect(() => {
-    const processing = videos.filter((v) => v.watermarkStatus === "processing");
-    if (processing.length === 0) return;
+    if (!processingIds) return;
 
     pollRef.current = setInterval(async () => {
+      const ids = processingIds.split(",").map(Number);
       const updated = await Promise.all(
-        processing.map((v) => fetch(`/api/videos/${v.id}`).then((r) => r.json()))
+        ids.map((id) => fetch(`/api/videos/${id}`).then((r) => r.json()))
       );
       setVideos((prev) =>
         prev.map((v) => {
@@ -52,12 +58,13 @@ export default function VideosPage() {
           return u || v;
         })
       );
-    }, 2000);
+    }, 3000);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [videos]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [processingIds]);
 
   const submitLink = async (promptId: number) => {
     const link = links[promptId];

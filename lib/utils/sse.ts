@@ -45,7 +45,19 @@ export type JobState = {
 
 const jobStore = new Map<string, JobState>();
 
+const JOB_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+function pruneExpiredJobs() {
+  const now = Date.now();
+  jobStore.forEach((job, id) => {
+    if (now - job.createdAt > JOB_TTL_MS) {
+      jobStore.delete(id);
+    }
+  });
+}
+
 export function createJob(jobId: string): JobState {
+  pruneExpiredJobs();
   const job: JobState = {
     logs: [],
     status: "running",

@@ -3,9 +3,11 @@ import { db } from "@/db";
 import { videos } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { removeWatermark } from "@/lib/automation/watermark-removal";
+import { parseId } from "@/lib/utils/params";
 
 export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
-  const videoId = parseInt(params.id);
+  const videoId = parseId(params.id);
+  if (!videoId) return NextResponse.json({ error: "Invalid id" }, { status: 400 });
 
   try {
     const [video] = await db.select().from(videos).where(eq(videos.id, videoId));
