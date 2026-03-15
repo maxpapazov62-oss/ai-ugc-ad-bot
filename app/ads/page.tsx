@@ -26,6 +26,7 @@ export default function AdsPage() {
   const [analyzing, setAnalyzing] = useState(false);
   const [scrapeMsg, setScrapeMsg] = useState("");
   const [search, setSearch] = useState("");
+  const [brandSearch, setBrandSearch] = useState("");
 
   useEffect(() => {
     fetch("/api/brands").then((r) => r.json()).then(setBrands);
@@ -86,8 +87,15 @@ export default function AdsPage() {
         {/* Brand selector */}
         <div className="space-y-3">
           <div className="text-xs text-white/40 uppercase tracking-widest">Select Brands</div>
+          <input
+            type="text"
+            placeholder="Search brands..."
+            value={brandSearch}
+            onChange={(e) => setBrandSearch(e.target.value)}
+            className="w-full bg-transparent border border-white/10 px-3 py-2 text-sm font-mono text-white placeholder-white/20 focus:outline-none focus:border-white/30"
+          />
           <div className="border border-white/10 max-h-64 overflow-y-auto">
-            {brands.map((brand) => (
+            {brands.filter((b) => !brandSearch || b.name.toLowerCase().includes(brandSearch.toLowerCase())).map((brand) => (
               <label
                 key={brand.id}
                 className="flex items-center gap-3 px-4 py-2 hover:bg-white/5 cursor-pointer border-b border-white/5 last:border-0"

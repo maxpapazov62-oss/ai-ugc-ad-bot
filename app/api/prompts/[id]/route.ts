@@ -3,6 +3,15 @@ import { db } from "@/db";
 import { soraPrompts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
+export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  try {
+    await db.delete(soraPrompts).where(eq(soraPrompts.id, parseInt(params.id)));
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return NextResponse.json({ error: String(error) }, { status: 500 });
+  }
+}
+
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
   try {
     const { soraSharedLink, status } = await req.json() as { soraSharedLink?: string; status?: string };

@@ -47,6 +47,23 @@ export default function PromptsPage() {
     fetch("/api/prompts").then((r) => r.json()).then(setPrompts);
   };
 
+  const deleteSwipeFile = async (id: number) => {
+    await fetch("/api/swipe-file", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    const files: SwipeFile[] = await fetch("/api/swipe-file").then((r) => r.json());
+    setSwipeFiles(files);
+    setSelectedSwipeFile(files.length > 0 ? files[0].id : null);
+    fetch("/api/prompts").then((r) => r.json()).then(setPrompts);
+  };
+
+  const deletePrompt = async (id: number) => {
+    await fetch(`/api/prompts/${id}`, { method: "DELETE" });
+    setPrompts((prev) => prev.filter((p) => p.id !== id));
+  };
+
   const brands = Array.from(new Set(prompts.map((p) => p.brandName).filter(Boolean) as string[]));
   const filtered = prompts.filter((p) => {
     if (filterDuration && p.duration !== filterDuration) return false;
@@ -86,11 +103,24 @@ export default function PromptsPage() {
         <Button onClick={generate} loading={generating} disabled={!selectedSwipeFile || generating}>
           Generate Sora Prompts
         </Button>
+        {selectedSwipeFile && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (confirm("Delete this swipe file and all its prompts?")) {
+                deleteSwipeFile(selectedSwipeFile);
+              }
+            }}
+          >
+            Delete Swipe File
+          </Button>
+        )}
       </div>
 
       {/* Filters */}
       {prompts.length > 0 && (
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
           <span className="text-xs text-white/40 uppercase tracking-widest">Filter:</span>
           {[null, 15, 30].map((d) => (
             <Button
@@ -128,10 +158,18 @@ export default function PromptsPage() {
                 <Badge>15s</Badge>
                 {prompt.angle && <Badge variant="default">{prompt.angle}</Badge>}
               </div>
-              <CopyButton text={prompt.promptText} />
+              <div className="flex items-center gap-2">
+                <CopyButton text={prompt.promptText} />
+                <button
+                  onClick={() => deletePrompt(prompt.id)}
+                  className="text-white/20 hover:text-red-400 text-xs font-mono transition-colors"
+                >
+                  delete
+                </button>
+              </div>
             </div>
             <div className="text-xs text-white/40 mb-1">{prompt.label}</div>
-            <div className="text-sm text-white/80 font-mono leading-relaxed">{prompt.promptText}</div>
+            <div className="text-sm text-white/80 font-mono leading-relaxed whitespace-pre-wrap">{prompt.promptText}</div>
           </Card>
         ))}
 
@@ -139,9 +177,17 @@ export default function PromptsPage() {
         {!filterDuration || filterDuration === 30
           ? Object.entries(grouped30).map(([base, shots]) => (
               <Card key={base} className="border-white/20">
-                <div className="flex items-center gap-2 mb-4">
-                  <Badge variant="warning">30s</Badge>
-                  <span className="text-xs text-white/40">{base}</span>
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="warning">30s</Badge>
+                    <span className="text-xs text-white/40">{base}</span>
+                  </div>
+                  <button
+                    onClick={() => shots.forEach((s) => deletePrompt(s.id))}
+                    className="text-white/20 hover:text-red-400 text-xs font-mono transition-colors"
+                  >
+                    delete
+                  </button>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   {shots
@@ -152,7 +198,7 @@ export default function PromptsPage() {
                           <span className="text-xs text-white/40">Shot {shot.shotNumber} of 2</span>
                           <CopyButton text={shot.promptText} label={`Copy Shot ${shot.shotNumber}`} />
                         </div>
-                        <div className="text-xs text-white/70 font-mono leading-relaxed">{shot.promptText}</div>
+                        <div className="text-xs text-white/70 font-mono leading-relaxed whitespace-pre-wrap">{shot.promptText}</div>
                       </div>
                     ))}
                 </div>
