@@ -25,6 +25,7 @@ export default function AdsPage() {
   const [scraping, setScraping] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [scrapeMsg, setScrapeMsg] = useState("");
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     fetch("/api/brands").then((r) => r.json()).then(setBrands);
@@ -100,7 +101,7 @@ export default function AdsPage() {
                 <div>
                   <div className="text-sm font-mono">{brand.name}</div>
                   {!brand.facebookPageId && (
-                    <div className="text-xs text-red-400/60">No FB page ID</div>
+                    <div className="text-xs text-zinc-500">Search by name</div>
                   )}
                 </div>
               </label>
@@ -123,8 +124,23 @@ export default function AdsPage() {
         {/* Ads list */}
         <div className="col-span-2 space-y-3">
           <div className="text-xs text-white/40 uppercase tracking-widest">{ads.length} Ads</div>
+          <input
+            type="text"
+            placeholder="Search ads..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full bg-transparent border border-white/10 px-3 py-2 text-sm font-mono text-white placeholder-white/20 focus:outline-none focus:border-white/30"
+          />
           <div className="space-y-2 max-h-96 overflow-y-auto">
-            {ads.slice(0, 20).map((ad) => (
+            {ads.filter((ad) => {
+              if (!search) return true;
+              const q = search.toLowerCase();
+              return (
+                ad.hook?.toLowerCase().includes(q) ||
+                ad.bodyText?.toLowerCase().includes(q) ||
+                ad.brandName?.toLowerCase().includes(q)
+              );
+            }).slice(0, 20).map((ad) => (
               <Card key={ad.id} className="text-sm">
                 <div className="flex items-center justify-between mb-2">
                   <Badge variant="muted">{ad.brandName}</Badge>
@@ -141,6 +157,16 @@ export default function AdsPage() {
             ))}
             {ads.length === 0 && (
               <div className="text-white/30 text-sm py-4">No ads scraped yet</div>
+            )}
+            {ads.length > 0 && search && ads.filter((ad) => {
+              const q = search.toLowerCase();
+              return (
+                ad.hook?.toLowerCase().includes(q) ||
+                ad.bodyText?.toLowerCase().includes(q) ||
+                ad.brandName?.toLowerCase().includes(q)
+              );
+            }).length === 0 && (
+              <div className="text-white/30 text-sm py-4">No ads match &quot;{search}&quot;</div>
             )}
           </div>
         </div>

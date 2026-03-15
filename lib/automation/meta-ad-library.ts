@@ -31,17 +31,21 @@ function extractHook(bodyText: string | null): string | null {
 }
 
 export async function scrapeMetaAds(
-  facebookPageId: string,
+  facebookPageIdOrSearchTerm: string,
   accessToken: string,
-  apiVersion: string = "v19.0",
-  limit: number = 50
+  apiVersion: string = "v22.0",
+  limit: number = 50,
+  useSearchTerm: boolean = false
 ): Promise<ScrapedAd[]> {
   const results: ScrapedAd[] = [];
   let after: string | null = null;
 
   while (true) {
     const params = new URLSearchParams({
-      search_page_ids: facebookPageId,
+      ...(useSearchTerm
+        ? { search_terms: facebookPageIdOrSearchTerm }
+        : { search_page_ids: facebookPageIdOrSearchTerm }),
+      ad_reached_countries: '["US"]',
       ad_active_status: "ACTIVE",
       ad_type: "ALL",
       limit: String(Math.min(limit - results.length, 50)),
@@ -63,6 +67,7 @@ export async function scrapeMetaAds(
     }
 
     const json = await response.json();
+    console.log("Meta API response:", JSON.stringify(json).slice(0, 500));
     const ads: MetaAd[] = json.data || [];
 
     for (const ad of ads) {
