@@ -11,6 +11,7 @@ type Brand = {
   threeMonthGrowth: number | null;
   metaAdCount: number | null;
   niche: string | null;
+  facebookPageId: string | null;
 };
 
 function formatTraffic(n: number | null) {
@@ -25,6 +26,8 @@ export default function ResearchPage() {
   const [logs, setLogs] = useState<string[]>([]);
   const [running, setRunning] = useState(false);
   const [collapsedNiches, setCollapsedNiches] = useState<Set<string>>(new Set());
+  const [editingPageId, setEditingPageId] = useState<number | null>(null);
+  const [pageIdInput, setPageIdInput] = useState("");
   const logsRef = useRef<HTMLDivElement>(null);
   const esRef = useRef<EventSource | null>(null);
 
@@ -79,6 +82,19 @@ export default function ResearchPage() {
       setRunning(false);
       es.close();
     };
+  };
+
+  const savePageId = async (brandId: number) => {
+    await fetch("/api/brands", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: brandId, facebookPageId: pageIdInput.trim() }),
+    });
+    setBrands((prev) =>
+      prev.map((b) => b.id === brandId ? { ...b, facebookPageId: pageIdInput.trim() || null } : b)
+    );
+    setEditingPageId(null);
+    setPageIdInput("");
   };
 
   const toggleNiche = (niche: string) => {
@@ -164,6 +180,7 @@ export default function ResearchPage() {
                         <th className="text-right px-4 py-2">Traffic/mo</th>
                         <th className="text-right px-4 py-2">3M Growth</th>
                         <th className="text-right px-4 py-2">Meta Ads</th>
+                        <th className="text-left px-4 py-2">FB Page ID</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -178,6 +195,36 @@ export default function ResearchPage() {
                             ) : "—"}
                           </td>
                           <td className="px-4 py-2 text-right">{brand.metaAdCount ?? "—"}</td>
+                          <td className="px-4 py-2">
+                            {editingPageId === brand.id ? (
+                              <div className="flex items-center gap-2">
+                                <input
+                                  autoFocus
+                                  type="text"
+                                  placeholder="e.g. 109113745882588"
+                                  value={pageIdInput}
+                                  onChange={(e) => setPageIdInput(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") savePageId(brand.id);
+                                    if (e.key === "Escape") { setEditingPageId(null); setPageIdInput(""); }
+                                  }}
+                                  className="bg-black border border-white/30 text-white text-xs font-mono px-2 py-1 w-44 focus:outline-none"
+                                />
+                                <button onClick={() => savePageId(brand.id)} className="text-xs text-green-400 font-mono">save</button>
+                                <button onClick={() => { setEditingPageId(null); setPageIdInput(""); }} className="text-xs text-white/30 font-mono">×</button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => { setEditingPageId(brand.id); setPageIdInput(brand.facebookPageId || ""); }}
+                                className="text-xs font-mono text-left hover:text-white transition-colors"
+                              >
+                                {brand.facebookPageId
+                                  ? <span className="text-green-400">{brand.facebookPageId}</span>
+                                  : <span className="text-white/20">set page id</span>
+                                }
+                              </button>
+                            )}
+                          </td>
                         </tr>
                       ))}
                     </tbody>
