@@ -2,6 +2,64 @@ const META_API_BASE = "https://graph.facebook.com";
 
 const WINNING_AD_MIN_DAYS = 30;
 
+function nameSimilarity(a: string, b: string): number {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const na = normalize(a);
+  const nb = normalize(b);
+  if (na === nb) return 1;
+  if (na.includes(nb) || nb.includes(na)) return 0.8;
+  // Count matching words
+  const wordsA = new Set(na.split(/\s+/));
+  const wordsB = nb.split(/\s+/);
+  const matches = wordsB.filter((w) => wordsA.has(w)).length;
+  return matches / Math.max(wordsA.size, wordsB.length);
+}
+
+export async function lookupFacebookPageId(
+  brandName: string,
+  accessToken: string,
+  apiVersion: string = "v22.0"
+): Promise<string | null> {
+  const params = new URLSearchParams({
+    search_terms: brandName,
+    ad_reached_countries: '["US"]',
+    ad_active_status: "ACTIVE",
+    ad_type: "ALL",
+    limit: "25",
+    fields: "page_id,page_name",
+    access_token: accessToken,
+  });
+
+  const url = `${META_API_BASE}/${apiVersion}/ads_archive?${params.toString()}`;
+  const response = await fetch(url);
+  if (!response.ok) return null;
+
+  const json = await response.json();
+  const results: Array<{ page_id?: string; page_name?: string }> = json.data || [];
+
+  if (results.length === 0) return null;
+
+  // Count page_id occurrences, weighted by name similarity
+  const scores = new Map<string, { score: number; name: string }>();
+  for (const r of results) {
+    if (!r.page_id || !r.page_name) continue;
+    const sim = nameSimilarity(brandName, r.page_name);
+    const existing = scores.get(r.page_id);
+    if (!existing || sim > existing.score) {
+      scores.set(r.page_id, { score: sim, name: r.page_name });
+    }
+  }
+
+  if (scores.size === 0) return null;
+
+  // Pick highest scoring page_id that has at least some name similarity
+  const best = Array.from(scores.entries())
+    .filter(([, v]) => v.score > 0.3)
+    .sort((a, b) => b[1].score - a[1].score)[0];
+
+  return best ? best[0] : null;
+}
+
 export type MetaAd = {
   id: string;
   ad_snapshot_url: string;

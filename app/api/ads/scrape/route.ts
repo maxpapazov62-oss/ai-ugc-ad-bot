@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { brands, ads } from "@/db/schema";
-import { inArray } from "drizzle-orm";
-import { scrapeMetaAds } from "@/lib/automation/meta-ad-library";
+import { inArray, eq } from "drizzle-orm";
+import { scrapeMetaAds, lookupFacebookPageId } from "@/lib/automation/meta-ad-library";
 
 export async function POST(req: NextRequest) {
   try {
@@ -29,8 +29,18 @@ export async function POST(req: NextRequest) {
 
     for (const brand of selectedBrands) {
       try {
-        const useSearchTerm = !brand.facebookPageId;
-        const searchParam = brand.facebookPageId || brand.name;
+        let pageId = brand.facebookPageId;
+
+        // Auto-lookup page ID if not stored — ensures we scrape the right advertiser
+        if (!pageId) {
+          pageId = await lookupFacebookPageId(brand.name, accessToken, apiVersion);
+          if (pageId) {
+            await db.update(brands).set({ facebookPageId: pageId }).where(eq(brands.id, brand.id));
+          }
+        }
+
+        const useSearchTerm = !pageId;
+        const searchParam = pageId || brand.name;
         const metaAds = await scrapeMetaAds(searchParam, accessToken, apiVersion, 50, useSearchTerm);
 
         for (const ad of metaAds) {
